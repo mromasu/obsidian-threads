@@ -2,7 +2,7 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 import { ChainGraph } from './graph/ChainGraph';
 import { buildChainGraph, updateNodeEdges } from './graph/ChainBuilder';
 import { renderChainView } from './renderChainView';
-import { updateFrontmatter } from './utils';
+import { updateFrontmatter } from './utility/utils';
 
 // Remember to rename these classes and interfaces!
 
@@ -26,17 +26,21 @@ export default class MyPlugin extends Plugin {
 		//============================================
 		// Initialize chain graph
 		//============================================
+		// We wait for the workspace to be fully ready before building our graph.
+		// This ensures all files are indexed and the cache is populated.
 		this.app.workspace.onLayoutReady(() => {
 
 			const leaves = this.app.workspace.getLeavesOfType("markdown");
+			// Build the initial graph from all files in the vault
 			this.rebuildGraph();
 
 			console.log(`Rendering chain view for ${leaves.length} markdown leaves`);
 
-			leaves.forEach(leaf => {
+			// Initial render: Inject the view into all currently open markdown leaves
+			leaves.forEach(async leaf => {
 				const view = leaf.view;
 				if (view instanceof MarkdownView) {
-					renderChainView(this, view);
+					await renderChainView(this, view);
 				}
 			});
 
@@ -99,11 +103,15 @@ export default class MyPlugin extends Plugin {
 				})
 			);
 
+			// Handle layout changes (e.g. opening a new file, switching tabs)
+			// We need to re-inject our view whenever the layout changes because
+			// Obsidian might have destroyed our injected elements.
 			this.registerEvent(
-				this.app.workspace.on("layout-change", () => {
+				this.app.workspace.on("layout-change", async () => {
 					console.log("Layout changed");
 					// Optional: might not need full rebuild here if we trust events
-					this.rebuildGraph();
+					// But for safety, we rebuild and re-render.
+					await this.rebuildGraph();
 				})
 			);
 
@@ -118,14 +126,25 @@ export default class MyPlugin extends Plugin {
 	//============================================
 	// Rebuild chain graph
 	//============================================
-	rebuildGraph() {
+	//============================================
+	// Rebuild chain graph
+	//============================================
+	/**
+	 * Rebuilds the entire graph from scratch and re-renders the view.
+	 * This is an expensive operation, so use it sparingly.
+	 * In a production plugin, you might want to update the graph incrementally.
+	 */
+	async rebuildGraph() {
 		console.log("Rebuilding chain graph");
 		this.graph = buildChainGraph(this.app);
-		this.renderChainView();
+		await this.renderChainView();
 	}
 
-	renderChainView() {
-		renderChainView(this);
+	/**
+	 * Renders the chain view into the active markdown leaf.
+	 */
+	async renderChainView() {
+		await renderChainView(this);
 	}
 	//============================================
 

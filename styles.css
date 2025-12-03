@@ -1,8 +1,57 @@
-/*
+/* Breadcrumbs Navigation Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.chain-prev,
+.chain-next {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
 
-If your plugin does not need CSS, delete this file.
+.chain-embedded-editor,
+.chain-thread-header {
+    width: 100%;
 
-*/
+    >div {
+        width: 100%;
+    }
+}
+
+
+/* Embedded Markdown Preview Styles */
+
+.chain-thread-container .markdown-preview-view {
+    padding: 0 !important;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.markdown-source-view.mod-cm6 .cm-contentContainer {
+    flex: unset;
+}
+
+/* ===== Thread Visual Styles ===== */
+
+.cm-contentContainer {
+    padding: 20px 30px !important;
+}
+
+.chain-reply {
+    margin-top: 50px;
+}
+
+/* ===== Last Container in Chain Styles ===== */
+
+.chain-thread-container,
+.view-content>.markdown-source-view.mod-cm6>.cm-editor>.cm-scroller>.cm-sizer>.cm-contentContainer {
+    background-color: var(--background-secondary);
+    border-bottom: 2px solid black;
+}
+
+.view-content>.markdown-source-view.mod-cm6>.cm-editor>.cm-scroller>.cm-sizer>.cm-contentContainer {
+    box-shadow: var(--shadow-s);
+}
+
+.cm-content {
+    padding-bottom: unset !important;
+}

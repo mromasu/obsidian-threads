@@ -1,6 +1,11 @@
 import { ChainGraph, ChainEdge, ChainEdgeAttributes, ChainNodeAttributes } from "../graph/ChainGraph";
 /**
- * Helper to map edges from graphology format to BCEdge-like objects
+ * Helper to map edges from graphology format to BCEdge-like objects.
+ * Graphology uses a callback-based iteration, so we wrap it to return a clean array of objects.
+ * 
+ * @param graph - The graphology instance
+ * @param nodeId - The node to find edges for
+ * @param direction - "out" (outgoing edges) or "in" (incoming edges)
  */
 const mapEdges = (
     graph: ChainGraph,
@@ -39,7 +44,9 @@ export const isInChain = (graph: ChainGraph, notePath: string): boolean => {
     return prevEdges.length > 0;
 };
 /**
- * Get the previous note(s) in the chain
+ * Get the previous note(s) in the chain.
+ * Logic: If Current Note has "prev: [[Note A]]", then Note A is a previous note.
+ * In the graph, this is represented as an outgoing edge from Current -> Note A.
  */
 export const getPrevNotes = (graph: ChainGraph, notePath: string): string[] => {
     if (!graph.hasNode(notePath)) return [];
@@ -47,11 +54,15 @@ export const getPrevNotes = (graph: ChainGraph, notePath: string): string[] => {
     const prevEdges = mapEdges(graph, notePath, "out");
     return prevEdges.map((e) => e.target_id);
 };
+
 /**
- * Next Note Deduction: Find notes that have current note as their "prev"
+ * Next Note Deduction: Find notes that have current note as their "prev".
  * 
  * This analyzes inlinks (backlinks) to deduce the "next" note.
- * Logic: If Note B has "prev: [[Note A]]", then Note A's "next" is Note B
+ * Logic: If Note B has "prev: [[Note A]]", then Note A's "next" is Note B.
+ * 
+ * In the graph, Note B -> Note A is an outgoing edge for B.
+ * So for Note A, we look at INCOMING edges (from B) where the relationship is "prev".
  */
 export const getNextNotes = (graph: ChainGraph, notePath: string): string[] => {
     if (!graph.hasNode(notePath)) return [];
