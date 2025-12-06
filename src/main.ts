@@ -1,8 +1,12 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { EditorView } from '@codemirror/view';
 import { ChainGraph } from './graph/GraphBuilder';
 import { buildChainGraph, updateNodeEdges } from './graph/ChainQueries';
 import { renderChainView } from './renderChainView';
-import { updateFrontmatter } from './utility/utils';
+import { debounce } from './utility/debounce';
+import { GraphService } from './services/GraphService';
+import { EmptyLineDetector } from './services/EmptyLineDetector';
+import { NoteCreationService } from './services/NoteCreationService';
 
 // Remember to rename these classes and interfaces!
 
@@ -16,7 +20,15 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
-	graph: ChainGraph;
+	graphService: GraphService;
+	emptyLineDetector: EmptyLineDetector;
+	noteCreationService: NoteCreationService;
+	private isCreatingNote: boolean = false; // Debounce flag to prevent rapid creation
+
+	// Expose graph for backward compatibility with renderChainView
+	get graph(): ChainGraph {
+		return this.graphService.graph;
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -30,11 +42,29 @@ export default class MyPlugin extends Plugin {
 		// This ensures all files are indexed and the cache is populated.
 		this.app.workspace.onLayoutReady(() => {
 
-			const leaves = this.app.workspace.getLeavesOfType("markdown");
-			// Build the initial graph from all files in the vault
-			this.rebuildGraph();
+			// Initialize the graph service
+			this.graphService = new GraphService(this.app);
+			this.graphService.initialize();
 
+			// Initialize empty line detection services
+			this.emptyLineDetector = new EmptyLineDetector();
+			this.noteCreationService = new NoteCreationService(this.app, this.graphService);
+
+			// Register CodeMirror extension for detecting empty lines in native editor
+			this.registerEditorExtension(
+				EditorView.updateListener.of((update) => {
+					if (update.docChanged && !this.isCreatingNote) {
+						const content = update.state.doc.toString();
+						if (this.emptyLineDetector.detectPattern(content)) {
+							this.handleEmptyLineDetection(update.view);
+						}
+					}
+				})
+			);
+
+			const leaves = this.app.workspace.getLeavesOfType("markdown");
 			console.log(`Rendering chain view for ${leaves.length} markdown leaves`);
+
 
 			// Initial render: Inject the view into all currently open markdown leaves
 			leaves.forEach(async leaf => {
@@ -51,67 +81,53 @@ export default class MyPlugin extends Plugin {
 			// Handle file renames
 			this.registerEvent(
 				this.app.vault.on("rename", (file, oldPath) => {
-					console.log(`File renamed: ${oldPath} -> ${file.path}`);
-					this.graph.safe_rename_node(oldPath, file.path);
+					this.graphService.handleRename(oldPath, file.path);
 					this.renderChainView();
 				})
 			);
 
-			// Handle file deletions
+			// Handle file deletions - GraphService handles chain healing
 			this.registerEvent(
 				this.app.vault.on("delete", async (file) => {
-					console.log("File deleted:", file.path);
 					if (file instanceof TFile && file.extension === "md") {
-						const deletedPath = file.path;
-
-						// 1. Heal broken chains
-						if (this.graph.hasNode(deletedPath)) {
-							const inEdges = this.graph.mapInEdges(deletedPath, (edge, attr, source, target) => source);
-							const outEdges = this.graph.mapOutEdges(deletedPath, (edge, attr, source, target) => target);
-
-							for (const sourcePath of inEdges) {
-								const sourceFile = this.app.vault.getAbstractFileByPath(sourcePath);
-								if (sourceFile instanceof TFile) {
-									const sourceOutEdges = this.graph.mapOutEdges(sourcePath, (edge, attr, source, target) => target);
-									const updatedTargets = sourceOutEdges
-										.filter(t => t !== deletedPath)
-										.concat(outEdges);
-
-									const linksText = updatedTargets.map(path => {
-										const f = this.app.vault.getAbstractFileByPath(path);
-										return f instanceof TFile ? f.basename : path.replace(/\.md$/, '').split('/').pop() || path;
-									});
-
-									await updateFrontmatter(this.app, sourceFile, linksText);
-								}
-							}
-						}
-
-						this.graph.handle_delete(file.path);
+						await this.graphService.handleDelete(file);
 						this.renderChainView();
 					}
 				})
 			);
 
 			// Handle file creation and modification via cache updates
-			// This ensures we have the latest frontmatter
+			// Debounced to avoid excessive updates during rapid saves
+			const debouncedMetadataHandler = debounce((file: TFile) => {
+				console.log("Metadata changed (debounced):", file.path);
+				this.graphService.updateFile(file);
+				this.renderChainView();
+			}, 300);
+
 			this.registerEvent(
-				this.app.metadataCache.on("changed", (file) => {
-					console.log("Metadata changed:", file.path);
-					updateNodeEdges(this.graph, file, this.app);
-					this.renderChainView();
+				this.app.metadataCache.on("changed", debouncedMetadataHandler)
+			);
+
+			// Handle active leaf changes (tab switches, file opens)
+			// This is more reliable than layout-change for updating the chain view
+			this.registerEvent(
+				this.app.workspace.on("active-leaf-change", async (leaf) => {
+					if (!leaf) return;
+					const view = leaf.view;
+					if (view instanceof MarkdownView) {
+						console.log("Active leaf changed:", view.file?.path);
+						await renderChainView(this, view);
+					}
 				})
 			);
 
-			// Handle layout changes (e.g. opening a new file, switching tabs)
-			// We need to re-inject our view whenever the layout changes because
-			// Obsidian might have destroyed our injected elements.
+			// Handle layout changes (e.g. pane resizing, splits)
+			// Only re-render, don't rebuild the entire graph
 			this.registerEvent(
 				this.app.workspace.on("layout-change", async () => {
 					console.log("Layout changed");
-					// Optional: might not need full rebuild here if we trust events
-					// But for safety, we rebuild and re-render.
-					await this.rebuildGraph();
+					// Only re-render, don't rebuild graph (active-leaf-change handles file switches)
+					await this.renderChainView();
 				})
 			);
 
@@ -123,20 +139,12 @@ export default class MyPlugin extends Plugin {
 		//============================================
 	}
 
-	//============================================
-	// Rebuild chain graph
-	//============================================
-	//============================================
-	// Rebuild chain graph
-	//============================================
 	/**
 	 * Rebuilds the entire graph from scratch and re-renders the view.
 	 * This is an expensive operation, so use it sparingly.
-	 * In a production plugin, you might want to update the graph incrementally.
 	 */
 	async rebuildGraph() {
-		console.log("Rebuilding chain graph");
-		this.graph = buildChainGraph(this.app);
+		this.graphService.rebuild();
 		await this.renderChainView();
 	}
 
@@ -145,6 +153,37 @@ export default class MyPlugin extends Plugin {
 	 */
 	async renderChainView() {
 		await renderChainView(this);
+	}
+
+	/**
+	 * Handle detection of four empty lines in the native editor.
+	 * Cleans up the extra lines and creates a new chained note.
+	 */
+	private async handleEmptyLineDetection(view: EditorView): Promise<void> {
+		const activeFile = this.app.workspace.getActiveFile();
+		if (!activeFile) return;
+
+		// Set flag to prevent re-triggering during content update
+		this.isCreatingNote = true;
+
+		try {
+			// Remove pattern from editor
+			const content = view.state.doc.toString();
+			const cleanContent = this.emptyLineDetector.removePattern(content);
+			view.dispatch({
+				changes: { from: 0, to: content.length, insert: cleanContent }
+			});
+
+			console.log("Empty line pattern detected, creating new note...");
+
+			// Create new chained note
+			await this.noteCreationService.createChainedNote(activeFile.path);
+		} finally {
+			// Reset flag after a short delay to allow the new note to open
+			setTimeout(() => {
+				this.isCreatingNote = false;
+			}, 500);
+		}
 	}
 	//============================================
 
