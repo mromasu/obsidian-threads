@@ -1,4 +1,5 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
+import { FolderSuggest } from './settings/FolderSuggest';
 import { ChainGraph } from './graph/GraphBuilder';
 import { buildChainGraph, updateNodeEdges } from './graph/ChainQueries';
 import { renderChainView } from './renderChainView';
@@ -11,10 +12,12 @@ import { NoteCreationService } from './services/NoteCreationService';
 
 interface MyPluginSettings {
 	mySetting: string;
+	newNotesFolder: string;  // Folder path for new notes, empty = same as current note
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+	mySetting: 'default',
+	newNotesFolder: ''  // Empty means use same folder as current note
 }
 
 export default class MyPlugin extends Plugin {
@@ -33,6 +36,9 @@ export default class MyPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		// Add settings tab
+		this.addSettingTab(new SampleSettingTab(this.app, this));
+
 		console.log("Loading chain plugin");
 
 		//============================================
@@ -49,6 +55,7 @@ export default class MyPlugin extends Plugin {
 			// Initialize empty line detection services
 			this.emptyLineDetector = new EmptyLineDetector();
 			this.noteCreationService = new NoteCreationService(this.app, this.graphService);
+			this.noteCreationService.setTargetFolder(this.settings.newNotesFolder);
 
 			// Set callback to re-render chain view after new note is created
 			this.noteCreationService.setOnNoteCreated(async (file) => {
@@ -244,6 +251,22 @@ class SampleSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
+
+		// Folder setting for new notes
+		new Setting(containerEl)
+			.setName('New notes folder')
+			.setDesc('Where to create new notes when triggered by empty lines. Leave empty to use the same folder as the current note.')
+			.addText(text => {
+				text.setPlaceholder('e.g., daily-notes')
+					.setValue(this.plugin.settings.newNotesFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.newNotesFolder = value;
+						this.plugin.noteCreationService.setTargetFolder(value);
+						await this.plugin.saveSettings();
+					});
+				// Attach folder suggestion
+				new FolderSuggest(this.app, text.inputEl);
+			});
 
 		new Setting(containerEl)
 			.setName('Setting #1')

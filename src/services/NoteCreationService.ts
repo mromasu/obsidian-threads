@@ -13,11 +13,20 @@ import { GraphService } from "./GraphService";
 export class NoteCreationService {
     private onNoteCreated: ((file: TFile) => Promise<void>) | null = null;
     private isCreating: boolean = false; // Lock to prevent double triggers
+    private targetFolder: string = ""; // Folder path for new notes
 
     constructor(
         private app: App,
         private graphService: GraphService
     ) { }
+
+    /**
+     * Set the target folder for new notes.
+     * Empty string means use the same folder as the current note.
+     */
+    setTargetFolder(folder: string): void {
+        this.targetFolder = folder;
+    }
 
     /**
      * Set a callback to be invoked after a note is created and opened.
@@ -52,11 +61,14 @@ export class NoteCreationService {
             const timestamp = Date.now();
             const newFileName = `Untitled-${timestamp}.md`;
 
-            // Use the same folder as the current note
-            // Handle root folder (path is "/" or empty)
-            let folder = currentFile.parent?.path || "";
-            if (folder === "/") {
-                folder = "";
+            // Determine folder: use configured folder or fall back to current note's folder
+            let folder = this.targetFolder;
+            if (!folder) {
+                // Use the same folder as the current note
+                folder = currentFile.parent?.path || "";
+                if (folder === "/") {
+                    folder = "";
+                }
             }
             const newFilePath = folder ? `${folder}/${newFileName}` : newFileName;
 

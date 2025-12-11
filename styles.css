@@ -112,5 +112,5 @@
 
 .is-mobile .chain-thread-container,
 .is-mobile .view-content>.markdown-source-view.mod-cm6>.cm-editor>.cm-scroller>.cm-sizer>.cm-contentContainer {
-    border-bottom: 4px solid black;
+    border-bottom: 2px solid var(--background-modifier-border);
 }
