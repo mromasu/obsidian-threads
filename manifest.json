@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "threads",
+	"name": "Threads",
+	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "Transform your notes into Twitter/X-like threads. Chain notes together and view them as a continuous conversation flow.",
+	"author": "mromasu",
+	"authorUrl": "https://github.com/mromasu",
 	"isDesktopOnly": false
 }
