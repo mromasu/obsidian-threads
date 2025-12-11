@@ -72,6 +72,15 @@ export class NoteCreationService {
             }
             const newFilePath = folder ? `${folder}/${newFileName}` : newFileName;
 
+            // Ensure the target folder exists
+            if (folder) {
+                const folderExists = this.app.vault.getAbstractFileByPath(folder);
+                if (!folderExists) {
+                    console.log(`NoteCreationService: Creating folder ${folder}`);
+                    await this.app.vault.createFolder(folder);
+                }
+            }
+
             // Create frontmatter with prev pointing to current note
             const currentNoteName = currentFile.basename;
             const frontmatter = `---\nprev: "[[${currentNoteName}]]"\n---\n\n`;

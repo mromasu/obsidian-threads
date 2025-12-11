@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-threads-plugin",
-	"version": "0.0.31",
+	"version": "0.0.41",
 	"description": "Transform your notes into Twitter/X-like threads",
 	"main": "main.js",
 	"scripts": {
