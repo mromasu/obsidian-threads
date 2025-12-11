@@ -85,63 +85,6 @@ npm run dev
 npm run build
 ```
 
-## Architecture
-
-```
-src/
-├── main.ts                    # Plugin entry point & event handlers
-├── renderChainView.ts         # Main chain view rendering logic
-├── graph/
-│   ├── GraphBuilder.ts        # Chain graph data structure
-│   ├── ChainQueries.ts        # Graph traversal utilities
-│   ├── BranchDetector.ts      # Branch classification logic
-│   └── ChainHealer.ts         # Auto-repair after deletions
-├── services/
-│   ├── GraphService.ts        # Centralized graph management
-│   ├── NoteCreationService.ts # Chained note creation
-│   └── EmptyLineDetector.ts   # 4-Enter pattern detection
-├── views/
-│   └── embeddededitor.ts      # CodeMirror embedded editor
-└── utility/
-    ├── debounce.ts            # Debounce utilities
-    └── utils.ts               # Frontmatter & content helpers
-```
-
-### Core Concepts
-
-| Component | Purpose |
-|-----------|---------|
-| **ChainGraph** | Directed graph storing note relationships (using [Graphology](https://graphology.github.io/)) |
-| **GraphService** | Manages graph state, handles CRUD operations |
-| **ChainHealer** | Maintains chain continuity when notes are deleted |
-| **BranchDetector** | Determines main chain vs. reply branches |
-
-### Event Flow
-
-1. **Startup**: Build graph from all vault files
-2. **Metadata Change**: Update affected node edges
-3. **File Rename**: Update graph node ID
-4. **File Delete**: Heal chain, then remove node
-5. **Empty Line Pattern**: Create new chained note
-
-## Styling
-
-The plugin injects custom CSS for the thread view. Customize via `styles.css`:
-
-- `.chain-thread-container` - Individual note containers
-- `.chain-reply` - Reply branch styling
-- `.chain-embedded-editor` - Embedded editor wrapper
-- Mobile-responsive styles included
-
-## Requirements
-
-- Obsidian v0.15.0+
-- Node.js v16+ (for development)
-
-## API Documentation
-
-See the [Obsidian Plugin API](https://github.com/obsidianmd/obsidian-api) for more details.
-
 ## License
 
 MIT
