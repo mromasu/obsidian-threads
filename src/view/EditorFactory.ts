@@ -1,4 +1,4 @@
-import { App } from "obsidian";
+import { App, Platform } from "obsidian";
 import { EmbeddableMarkdownEditor } from "../views/embeddededitor";
 import { saveEditorContent } from "./ContentExtractor";
 import type ChainPlugin from "../main";
@@ -57,7 +57,29 @@ export async function createEmbeddedEditor(
             const currentContent = editor.value;
             if (currentContent !== originalContent) {
                 isDirty = true;
-                debouncedSave(currentContent);
+
+                // Check for empty line pattern on desktop only
+                if (!Platform.isMobile && plugin.emptyLineDetector && plugin.emptyLineDetector.detectPattern(currentContent)) {
+                    // Remove pattern and save
+                    const cleanContent = plugin.emptyLineDetector.removePattern(currentContent);
+                    // Use 'any' cast because 'set' is inherited from dynamically resolved parent
+                    (editor as any).set(cleanContent);
+                    originalContent = cleanContent;
+                    isDirty = false;
+
+                    // Clear any pending save timer
+                    if (debounceTimer) {
+                        clearTimeout(debounceTimer);
+                        debounceTimer = null;
+                    }
+
+                    // Save immediately and create new note
+                    saveEditorContent(app, sourcePath, cleanContent, originalYaml).then(() => {
+                        plugin.noteCreationService.createChainedNote(sourcePath);
+                    });
+                } else {
+                    debouncedSave(currentContent);
+                }
             }
         },
         onBlur: async (editor) => {

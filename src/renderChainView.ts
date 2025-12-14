@@ -1,4 +1,4 @@
-import { App, Component, MarkdownView, Notice, TFile } from "obsidian";
+import { App, Component, MarkdownView, Notice, Platform, TFile } from "obsidian";
 import { buildRenderingChain, ChainSegment } from "./graph/BranchDetector";
 import { EmbeddableMarkdownEditor } from "./views/embeddededitor";
 import { extractNoteContent } from "./view/ContentExtractor";
@@ -60,8 +60,9 @@ export const renderChainView = async (plugin: ChainPlugin, view?: MarkdownView):
     const existing = cmSizer.querySelectorAll(".chain-thread-container, .chain-create-button-container");
     existing.forEach(el => el.remove());
 
-    // BUILD THE RENDERING CHAIN (includes create button as last segment)
-    const chainSegments = buildRenderingChain(plugin.graph, currentFile.path);
+    // BUILD THE RENDERING CHAIN
+    // Include create button only on mobile (desktop uses empty-line detection)
+    const chainSegments = buildRenderingChain(plugin.graph, currentFile.path, Platform.isMobile);
 
     // Find the index of the active note in the chain
     const activeNoteIndex = chainSegments.findIndex(s => s.type === "note" && s.path === currentFile.path);

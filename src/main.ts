@@ -1,7 +1,8 @@
-import { MarkdownView, Plugin, TFile } from 'obsidian';
+import { MarkdownView, Platform, Plugin, TFile } from 'obsidian';
 import { ChainGraph } from './graph/GraphBuilder';
 import { renderChainView } from './renderChainView';
 import { GraphService } from './services/GraphService';
+import { EmptyLineDetector } from './services/EmptyLineDetector';
 import { NoteCreationService } from './services/NoteCreationService';
 import { ThreadsSettings, DEFAULT_SETTINGS } from './settings/ThreadsSettings';
 import { ThreadsSettingTab } from './settings/ThreadsSettingTab';
@@ -16,7 +17,11 @@ import { registerEvents } from './events/EventHandlers';
 export default class ThreadsPlugin extends Plugin {
 	settings: ThreadsSettings;
 	graphService: GraphService;
+	emptyLineDetector: EmptyLineDetector;
 	noteCreationService: NoteCreationService;
+
+	/** Debounce flag to prevent rapid note creation (desktop only) */
+	isCreatingNote: boolean = false;
 
 	/** Cache prev values to detect changes */
 	prevFrontmatterCache: Map<string, string | undefined> = new Map();
@@ -41,6 +46,7 @@ export default class ThreadsPlugin extends Plugin {
 			this.graphService = new GraphService(this.app);
 			this.graphService.initialize();
 
+			this.emptyLineDetector = new EmptyLineDetector();
 			this.noteCreationService = new NoteCreationService(this.app, this.graphService);
 			this.noteCreationService.setTargetFolder(this.settings.newNotesFolder);
 

@@ -15,6 +15,7 @@ export type { ThreadsSettings } from '../settings/ThreadsSettings';
 // Service types - export the classes themselves since they're used as types too
 export type { GraphService } from '../services/GraphService';
 export type { NoteCreationService } from '../services/NoteCreationService';
+export type { EmptyLineDetector } from '../services/EmptyLineDetector';
 
 // View types
 export type { EmbeddableMarkdownEditor } from '../views/embeddededitor';

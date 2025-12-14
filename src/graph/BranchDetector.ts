@@ -16,15 +16,17 @@ export type ChainSegment = {
 
 /**
  * Build the rendering chain from the active note.
- * Traces the linear chain and appends a create-button segment at the end.
+ * Traces the linear chain and optionally appends a create-button segment at the end.
  * 
  * @param graph - The chain graph
  * @param activeNotePath - The currently active note
- * @returns Array of chain segments in order (notes + create button)
+ * @param includeCreateButton - Whether to include the create button segment (mobile only)
+ * @returns Array of chain segments in order (notes + optional create button)
  */
 export const buildRenderingChain = (
     graph: ChainGraph,
-    activeNotePath: string
+    activeNotePath: string,
+    includeCreateButton: boolean = true
 ): ChainSegment[] => {
     const chain: ChainSegment[] = [];
     const visited = new Set<string>();
@@ -72,8 +74,10 @@ export const buildRenderingChain = (
         lastNotePath = next;
     }
 
-    // Step 4: Add create button at the end
-    chain.push({ type: "create-button", path: lastNotePath });
+    // Step 4: Add create button at the end (only if requested)
+    if (includeCreateButton) {
+        chain.push({ type: "create-button", path: lastNotePath });
+    }
 
     return chain;
 };
