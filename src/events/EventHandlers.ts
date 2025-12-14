@@ -94,11 +94,23 @@ function registerVaultEvents(plugin: ThreadsPlugin): void {
 /**
  * Register metadata cache events: frontmatter changes.
  * Only re-render when the "prev" frontmatter field changes.
+ * 
+ * IMPORTANT: We skip the active note entirely to prevent scroll issues on iOS.
+ * The active note is the only one the user can edit, and we don't need to
+ * re-render the chain when its content changes (only when prev changes in OTHER files).
  */
 function registerMetadataCacheEvents(plugin: ThreadsPlugin): void {
-    const debouncedMetadataHandler = debounce((file: TFile) => {
-        const cache = plugin.app.metadataCache.getFileCache(file);
-        const newPrev = JSON.stringify(cache?.frontmatter?.prev);
+    const debouncedMetadataHandler = debounce(async (file: TFile) => {
+        // SKIP THE ACTIVE NOTE - this is crucial for preventing scroll issues on iOS
+        // The user can only edit the active note, and content changes shouldn't trigger re-renders
+        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView?.file?.path === file.path) {
+            return; // Skip - don't re-render when active note changes
+        }
+
+        // For non-active files, use direct YAML parsing instead of Obsidian's metadata cache
+        // This is more reliable and doesn't depend on cache timing
+        const newPrev = await extractPrevFromFile(plugin.app, file);
 
         // Check if file was already in our cache
         const wasInCache = plugin.prevFrontmatterCache.has(file.path);
@@ -107,10 +119,7 @@ function registerMetadataCacheEvents(plugin: ThreadsPlugin): void {
         // Always update the cache with the current value
         plugin.prevFrontmatterCache.set(file.path, newPrev);
 
-        // Only re-render if:
-        // 1. The file was already in our cache (not a first-time population), AND
-        // 2. The prev value actually changed
-        // This prevents scroll issues on iOS from unnecessary re-renders during content edits
+        // Only re-render if the file was already in our cache AND prev actually changed
         if (wasInCache && newPrev !== oldPrev) {
             console.log(`Frontmatter prev changed in ${file.path}:`, oldPrev, "->", newPrev);
             plugin.graphService.updateFile(file);
@@ -121,6 +130,41 @@ function registerMetadataCacheEvents(plugin: ThreadsPlugin): void {
     plugin.registerEvent(
         plugin.app.metadataCache.on("changed", debouncedMetadataHandler)
     );
+}
+
+/**
+ * Extract the "prev" field from a file's YAML frontmatter using direct parsing.
+ * This avoids relying on Obsidian's metadata cache which can be unreliable.
+ * 
+ * @param app - The Obsidian App instance
+ * @param file - The file to extract prev from
+ * @returns Stringified prev value (for comparison), or undefined if not found
+ */
+async function extractPrevFromFile(app: import('obsidian').App, file: TFile): Promise<string | undefined> {
+    try {
+        const content = await app.vault.cachedRead(file);
+
+        // Match YAML frontmatter
+        const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (!yamlMatch) {
+            return undefined;
+        }
+
+        const yamlContent = yamlMatch[1];
+
+        // Simple regex to extract prev field value
+        // Handles: prev: "value", prev: value, prev: [[link]]
+        const prevMatch = yamlContent.match(/^prev:\s*(.+)$/m);
+        if (!prevMatch) {
+            return undefined;
+        }
+
+        // Return the raw value (trimmed) for comparison
+        return prevMatch[1].trim();
+    } catch (error) {
+        console.error(`Error reading prev from ${file.path}:`, error);
+        return undefined;
+    }
 }
 
 /**
