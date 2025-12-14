@@ -60,8 +60,11 @@ export const renderChainView = async (plugin: ChainPlugin, view?: MarkdownView):
     const existing = cmSizer.querySelectorAll(".chain-thread-container, .chain-create-button-container");
     existing.forEach(el => el.remove());
 
-    // BUILD THE RENDERING CHAIN
+    // BUILD THE RENDERING CHAIN (includes create button as last segment)
     const chainSegments = buildRenderingChain(plugin.graph, currentFile.path);
+
+    // Find the index of the active note in the chain
+    const activeNoteIndex = chainSegments.findIndex(s => s.type === "note" && s.path === currentFile.path);
 
     // INJECTION LOGIC:
     // The .cm-sizer has 3 default children:
@@ -72,13 +75,31 @@ export const renderChainView = async (plugin: ChainPlugin, view?: MarkdownView):
     const contentContainerIndex = 2; // .cm-contentContainer is at index 2
     let insertionIndex = contentContainerIndex;
 
-    // Track last note path for the create button
-    let lastNotePath = currentFile.path;
-
     for (let i = 0; i < chainSegments.length; i++) {
         const segment = chainSegments[i];
 
-        // Skip the active note itself (it's already rendered)
+        // Handle different segment types
+        if (segment.type === "create-button") {
+            // Create the button container
+            const buttonContainer = document.createElement("div");
+            buttonContainer.className = "chain-create-button-container";
+
+            const createButton = document.createElement("button");
+            createButton.className = "chain-create-button";
+            createButton.innerHTML = `${CREATE_ICON_SVG}<span>Continue thread</span>`;
+            createButton.addEventListener("click", async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                await plugin.noteCreationService.createChainedNote(segment.path);
+            });
+
+            buttonContainer.appendChild(createButton);
+            cmSizer.appendChild(buttonContainer);
+            createdContainers.push(buttonContainer);
+            continue;
+        }
+
+        // Skip the active note itself (it's already rendered by Obsidian)
         if (segment.path === currentFile.path) {
             insertionIndex++; // Move past the content container
             continue;
@@ -90,7 +111,7 @@ export const renderChainView = async (plugin: ChainPlugin, view?: MarkdownView):
         const container = document.createElement("div");
 
         // Determine if this should be rendered BEFORE or AFTER active note
-        const isPrevNote = i < chainSegments.findIndex(s => s.path === currentFile.path);
+        const isPrevNote = i < activeNoteIndex;
 
         // Apply CSS classes
         const baseClass = isPrevNote ? "chain-prev" : "chain-next";
@@ -130,27 +151,7 @@ export const renderChainView = async (plugin: ChainPlugin, view?: MarkdownView):
             }
             insertionIndex++; // Adjust for next insertion
         }
-
-        // Track the last note path (for the create button)
-        lastNotePath = segment.path;
     }
-
-    // ADD "CREATE NOTE" BUTTON at the end of the chain
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "chain-create-button-container";
-
-    const createButton = document.createElement("button");
-    createButton.className = "chain-create-button";
-    createButton.innerHTML = `${CREATE_ICON_SVG}<span>Continue thread</span>`;
-    createButton.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        await plugin.noteCreationService.createChainedNote(lastNotePath);
-    });
-
-    buttonContainer.appendChild(createButton);
-    cmSizer.appendChild(buttonContainer);
-    createdContainers.push(buttonContainer);
 
     // Restore scroll position after DOM manipulation
     if (cmScroller) {

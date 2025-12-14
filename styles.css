@@ -57,6 +57,7 @@
     color: var(--text-muted);
     cursor: pointer;
     font-size: 14px;
+    opacity: 0.3;
     transition: all 0.2s ease;
 }
 
@@ -64,6 +65,7 @@
     border-color: var(--text-normal);
     color: var(--text-normal);
     background: var(--background-modifier-hover);
+    opacity: 1;
 }
 
 .chain-create-button svg {
@@ -145,4 +147,9 @@
 
 .is-mobile .chain-note-icon {
     display: none;
+}
+
+/* Always show button on mobile */
+.is-mobile .chain-create-button {
+    opacity: 1;
 }

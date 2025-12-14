@@ -1,7 +1,7 @@
 {
 	"id": "threads",
 	"name": "Threads",
-	"version": "0.0.151",
+	"version": "0.0.201",
 	"minAppVersion": "0.15.0",
 	"description": "Transform your notes into Twitter/X-like threads. Chain notes together and view them as a continuous conversation flow.",
 	"author": "mromasu",
