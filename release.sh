@@ -54,18 +54,18 @@ fi
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
 # Beta versioning - stay within 0.0.xxx
-# Calculate new versions with extreme increments for rapid iteration
-NEW_SMALL="$MAJOR.$MINOR.$((PATCH + 10))"
-NEW_MEDIUM="$MAJOR.$MINOR.$((PATCH + 50))"
-NEW_LARGE="$MAJOR.$MINOR.$((PATCH + 100))"
+# Calculate new versions: small (+1), medium (+10), big (+100)
+NEW_SMALL="$MAJOR.$MINOR.$((PATCH + 1))"
+NEW_MEDIUM="$MAJOR.$MINOR.$((PATCH + 10))"
+NEW_BIG="$MAJOR.$MINOR.$((PATCH + 100))"
 NEW_STABLE="$MAJOR.$((MINOR + 1)).0"
 
 echo -e "${YELLOW}🧪 BETA Release Mode (0.0.xxx)${NC}"
 echo ""
 echo -e "${YELLOW}Select release type:${NC}"
-echo -e "  ${GREEN}1)${NC} Large   → $NEW_SMALL   (+10: bug fix, tweak)"
-echo -e "  ${GREEN}2)${NC} Medium  → $NEW_MEDIUM   (+50: feature update)"
-echo -e "  ${GREEN}3)${NC} Small   → $NEW_LARGE  (+100: significant changes)"
+echo -e "  ${GREEN}1)${NC} Small   → $NEW_SMALL   (+1: bug fix, tweak)"
+echo -e "  ${GREEN}2)${NC} Medium  → $NEW_MEDIUM   (+10: feature update)"
+echo -e "  ${GREEN}3)${NC} Big     → $NEW_BIG  (+100: significant changes)"
 echo -e "  ${BLUE}4)${NC} Stable  → $NEW_STABLE  (exit beta, go stable)"
 echo -e "  ${RED}5)${NC} Cancel"
 echo ""
@@ -75,7 +75,7 @@ read -p "Enter choice [1-5]: " choice
 case $choice in
     1) NEW_VERSION="$NEW_SMALL" ;;
     2) NEW_VERSION="$NEW_MEDIUM" ;;
-    3) NEW_VERSION="$NEW_LARGE" ;;
+    3) NEW_VERSION="$NEW_BIG" ;;
     4) 
         echo -e "${YELLOW}⚠ This will exit beta and release 0.1.0${NC}"
         read -p "Are you sure? [y/N]: " confirm

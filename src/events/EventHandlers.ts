@@ -99,12 +99,20 @@ function registerMetadataCacheEvents(plugin: ThreadsPlugin): void {
     const debouncedMetadataHandler = debounce((file: TFile) => {
         const cache = plugin.app.metadataCache.getFileCache(file);
         const newPrev = JSON.stringify(cache?.frontmatter?.prev);
+
+        // Check if file was already in our cache
+        const wasInCache = plugin.prevFrontmatterCache.has(file.path);
         const oldPrev = plugin.prevFrontmatterCache.get(file.path);
 
-        // Only update if prev changed (or file is new)
-        if (newPrev !== oldPrev) {
+        // Always update the cache with the current value
+        plugin.prevFrontmatterCache.set(file.path, newPrev);
+
+        // Only re-render if:
+        // 1. The file was already in our cache (not a first-time population), AND
+        // 2. The prev value actually changed
+        // This prevents scroll issues on iOS from unnecessary re-renders during content edits
+        if (wasInCache && newPrev !== oldPrev) {
             console.log(`Frontmatter prev changed in ${file.path}:`, oldPrev, "->", newPrev);
-            plugin.prevFrontmatterCache.set(file.path, newPrev);
             plugin.graphService.updateFile(file);
             plugin.renderChainView();
         }
